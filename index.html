@@ -1,0 +1,677 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B.J. Uadhye Traders — Order for Pickup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<style>
+  :root{
+    --bg:#FAF3E3;
+    --surface:#FFFFFF;
+    --ink:#26201A;
+    --muted:#8A7F6E;
+    --line:#E7DCC4;
+    --primary:#1F4D36;
+    --primary-dark:#163826;
+    --accent:#C1440E;
+    --gold:#D9A421;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;padding:0;}
+  html,body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Manrope',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+  button{font-family:inherit;}
+
+  /* ---------- Header ---------- */
+  header.shop{
+    background:var(--primary);
+    color:#fff;
+    padding:20px 18px 24px;
+    border-radius:0 0 20px 20px;
+  }
+  header.shop h1{
+    margin:0 0 4px;
+    font-size:22px;
+    font-weight:800;
+    letter-spacing:-0.02em;
+  }
+  header.shop .meta{
+    font-size:13.5px;
+    color:#DCEAE2;
+    line-height:1.5;
+    margin-top:6px;
+  }
+  header.shop .meta a{ text-decoration:underline; color:#fff; }
+  header.shop .status{
+    display:inline-block;
+    margin-top:10px;
+    background:rgba(255,255,255,0.15);
+    padding:4px 10px;
+    border-radius:20px;
+    font-size:12.5px;
+    font-weight:600;
+  }
+
+  /* ---------- Category chips ---------- */
+  .chips{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding:14px 16px;
+    scrollbar-width:none;
+  }
+  .chips::-webkit-scrollbar{display:none;}
+  .chip{
+    flex:0 0 auto;
+    padding:7px 14px;
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:20px;
+    font-size:13.5px;
+    font-weight:600;
+    color:var(--ink);
+    cursor:pointer;
+    white-space:nowrap;
+  }
+  .chip.active{
+    background:var(--primary);
+    border-color:var(--primary);
+    color:#fff;
+  }
+
+  /* ---------- Product grid ---------- */
+  main{padding:0 16px 110px;}
+  .grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:12px;
+    margin-top:4px;
+  }
+  .card{
+    background:var(--surface);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:12px;
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+  }
+  .card .cat{ font-size:11px; color:var(--muted); font-weight:600; }
+  .card .name{ font-size:14.5px; font-weight:700; line-height:1.3; min-height:38px; }
+  .card .price{ font-size:15px; font-weight:800; color:var(--primary-dark); }
+  .card .price .mrp{
+    font-weight:500; color:var(--muted); text-decoration:line-through; margin-left:6px; font-size:12.5px;
+  }
+  .card .unit-note{ font-size:11.5px; color:var(--muted); }
+
+  .qty-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-top:4px;
+  }
+  .stepper{
+    display:flex;
+    align-items:center;
+    border:1px solid var(--line);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .stepper button{
+    width:30px;height:30px;
+    border:none;background:var(--surface);
+    font-size:16px;font-weight:700;color:var(--primary-dark);
+    cursor:pointer;
+  }
+  .stepper span, .stepper input{
+    width:44px;text-align:center;font-size:13.5px;font-weight:700;border:none;background:transparent;
+  }
+  .add-btn{
+    width:100%;
+    padding:9px 0;
+    background:var(--primary);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    font-weight:700;
+    font-size:13.5px;
+    cursor:pointer;
+  }
+  .out-of-stock{
+    text-align:center;font-size:12.5px;font-weight:700;color:var(--accent);padding:8px 0;
+  }
+
+  .empty-msg{
+    text-align:center;
+    color:var(--muted);
+    padding:60px 20px;
+    font-size:14px;
+    line-height:1.6;
+  }
+
+  /* ---------- Cart bar ---------- */
+  .cart-bar{
+    position:fixed;
+    left:16px;right:16px;bottom:16px;
+    background:var(--primary-dark);
+    color:#fff;
+    border-radius:16px;
+    padding:14px 18px;
+    display:none;
+    align-items:center;
+    justify-content:space-between;
+    cursor:pointer;
+    box-shadow:0 8px 24px rgba(22,56,38,0.35);
+    z-index:40;
+  }
+  .cart-bar.show{ display:flex; }
+  .cart-bar .left{ font-size:13.5px; font-weight:600; }
+  .cart-bar .left b{ font-size:15px; }
+  .cart-bar .right{ font-weight:800; font-size:15px; }
+
+  /* ---------- Drawer / overlay ---------- */
+  .overlay{
+    position:fixed; inset:0;
+    background:rgba(0,0,0,0.4);
+    display:none;
+    z-index:50;
+  }
+  .overlay.show{ display:block; }
+  .sheet{
+    position:fixed;
+    left:0;right:0;bottom:0;
+    max-height:90vh;
+    background:var(--bg);
+    border-radius:20px 20px 0 0;
+    overflow-y:auto;
+    padding:18px 18px 30px;
+    z-index:51;
+    transform:translateY(100%);
+    transition:transform 0.25s ease;
+  }
+  .sheet.show{ transform:translateY(0); }
+  .sheet h2{ margin:0 0 14px; font-size:18px; font-weight:800; }
+  .sheet .close-x{
+    position:absolute; right:16px; top:16px;
+    width:30px;height:30px;border-radius:50%;
+    background:var(--surface); border:1px solid var(--line);
+    font-size:15px; cursor:pointer;
+  }
+
+  .cart-line{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:10px 0; border-bottom:1px solid var(--line);
+    font-size:13.5px;
+  }
+  .cart-line .nm{ font-weight:700; }
+  .cart-line .sub{ color:var(--muted); font-size:12px; }
+  .cart-line .remove{
+    background:none; border:none; color:var(--accent); font-size:12.5px; font-weight:700; cursor:pointer;
+  }
+
+  .cart-total-row{
+    display:flex; justify-content:space-between;
+    font-size:16px; font-weight:800;
+    padding:14px 0 4px;
+  }
+
+  label.field{ display:block; margin-top:14px; font-size:12.5px; font-weight:700; color:var(--muted); }
+  input.f, select.f, textarea.f{
+    width:100%; margin-top:6px;
+    padding:11px 12px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    font-size:14px;
+    font-family:inherit;
+    background:var(--surface);
+    color:var(--ink);
+  }
+  .radio-row{ display:flex; gap:10px; margin-top:6px; }
+  .radio-opt{
+    flex:1; text-align:center; padding:10px; border:1px solid var(--line); border-radius:10px;
+    font-size:13px; font-weight:700; cursor:pointer; background:var(--surface);
+  }
+  .radio-opt.selected{ border-color:var(--primary); background:#EAF2EC; color:var(--primary-dark); }
+
+  .place-btn{
+    width:100%; margin-top:20px;
+    padding:14px 0;
+    background:var(--accent);
+    color:#fff; border:none; border-radius:12px;
+    font-size:15px; font-weight:800;
+    cursor:pointer;
+  }
+  .place-btn:disabled{ background:#C9B79A; cursor:not-allowed; }
+  .err{ color:var(--accent); font-size:12.5px; font-weight:700; margin-top:8px; display:none; }
+
+  /* ---------- Confirmation ---------- */
+  .confirm{
+    position:fixed; inset:0; background:var(--bg);
+    z-index:60; display:none;
+    flex-direction:column; align-items:center; justify-content:center;
+    padding:30px; text-align:center;
+  }
+  .confirm.show{ display:flex; }
+  .confirm .tick{ font-size:44px; }
+  .confirm h2{ font-size:20px; margin:10px 0 4px; }
+  .confirm .ordno{ font-size:26px; font-weight:800; color:var(--primary-dark); letter-spacing:0.03em; }
+  .confirm canvas{ margin:18px 0; border:8px solid #fff; border-radius:12px; }
+  .confirm p{ font-size:13.5px; color:var(--muted); line-height:1.6; max-width:280px; }
+  .confirm button{
+    margin-top:18px; padding:12px 26px; background:var(--primary);
+    color:#fff; border:none; border-radius:10px; font-weight:700; cursor:pointer;
+  }
+
+  .disclaimer{
+    font-size:11.5px; color:var(--muted); text-align:center; padding:16px 24px 4px; line-height:1.6;
+  }
+</style>
+</head>
+<body>
+
+<header class="shop">
+  <h1 id="shopName">B.J. Uadhye Traders</h1>
+  <div class="meta">
+    Shetwal Galli, Nipani<br>
+    📞 <a href="tel:9632418484">9632418484</a> / <a href="tel:9008669866">9008669866</a>
+  </div>
+  <div class="status" id="openStatus">Open 9:00 AM – 9:00 PM</div>
+</header>
+
+<div class="chips" id="chips"></div>
+
+<main>
+  <div id="grid" class="grid"></div>
+  <div id="emptyMsg" class="empty-msg" style="display:none;">
+    No products available right now — please check back soon.
+  </div>
+</main>
+
+<div class="cart-bar" id="cartBar" onclick="openCart()">
+  <div class="left"><b id="cartCount">0</b> items in cart</div>
+  <div class="right" id="cartTotalPreview">₹0</div>
+</div>
+
+<div class="overlay" id="overlay" onclick="closeAllSheets()"></div>
+
+<!-- Cart / Checkout sheet -->
+<div class="sheet" id="cartSheet">
+  <button class="close-x" onclick="closeAllSheets()">✕</button>
+  <h2>Your order</h2>
+  <div id="cartLines"></div>
+  <div class="cart-total-row"><span>Total</span><span id="cartTotal">₹0</span></div>
+
+  <label class="field">Your name</label>
+  <input class="f" id="custName" placeholder="Full name">
+
+  <label class="field">Phone number</label>
+  <input class="f" id="custPhone" placeholder="10-digit mobile number" inputmode="numeric">
+
+  <label class="field" id="addressLabel">Address</label>
+  <input class="f" id="custAddress" placeholder="Required for orders above ₹1000">
+
+  <label class="field">Payment method</label>
+  <div class="radio-row">
+    <div class="radio-opt selected" data-pay="cash" onclick="selectPayment('cash')">Cash at pickup</div>
+    <div class="radio-opt" data-pay="upi" onclick="selectPayment('upi')">UPI at pickup</div>
+  </div>
+
+  <label class="field">Pickup slot</label>
+  <select class="f" id="pickupSlot"></select>
+
+  <label class="field">Note for the shop (optional)</label>
+  <textarea class="f" id="orderNote" rows="2" placeholder="e.g. ring the bell twice"></textarea>
+
+  <div class="err" id="formErr"></div>
+  <button class="place-btn" id="placeBtn" onclick="placeOrder()">Place order</button>
+</div>
+
+<!-- Confirmation -->
+<div class="confirm" id="confirmScreen">
+  <div class="tick">✅</div>
+  <h2>Order placed!</h2>
+  <div class="ordno" id="confirmOrderNo"></div>
+  <canvas id="qrCanvas"></canvas>
+  <p>Show this at the counter when you come for pickup. Bring cash or be ready to pay by UPI as selected.</p>
+  <button onclick="location.reload()">New order</button>
+</div>
+
+<div class="disclaimer">
+  Orders placed here are real and go directly to the shop. Online/UPI payment is collected at pickup, not charged through this website.
+</div>
+
+<script>
+/* ======================================================================
+   SUPABASE SETUP — paste your project's values below
+   ====================================================================== */
+const SUPABASE_URL = "https://jbzagffsgnstixwwxdod.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_tN_8lyHqyNl65OLa6LejRg_xf8_d5ve";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let products = [];
+let cart = {}; // key: product id -> {product, qty (pieces) or weightKg}
+let selectedCategory = 'All';
+let selectedPayment = 'cash';
+
+/* ---------------- Load products ---------------- */
+async function loadProducts(){
+  const { data, error } = await supabase
+    .from('products')
+    .select('*')
+    .eq('active', true)
+    .order('category', { ascending: true });
+
+  if (error){
+    console.error(error);
+    document.getElementById('emptyMsg').style.display = 'block';
+    document.getElementById('emptyMsg').textContent = 'Could not load products. Please refresh.';
+    return;
+  }
+  products = data || [];
+  renderChips();
+  renderGrid();
+}
+
+function renderChips(){
+  const cats = ['All', ...new Set(products.map(p => p.category))];
+  const el = document.getElementById('chips');
+  el.innerHTML = '';
+  cats.forEach(cat => {
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (cat === selectedCategory ? ' active' : '');
+    chip.textContent = cat;
+    chip.onclick = () => { selectedCategory = cat; renderChips(); renderGrid(); };
+    el.appendChild(chip);
+  });
+}
+
+function renderGrid(){
+  const grid = document.getElementById('grid');
+  const emptyMsg = document.getElementById('emptyMsg');
+  const list = selectedCategory === 'All' ? products : products.filter(p => p.category === selectedCategory);
+
+  if (products.length === 0){
+    grid.innerHTML = '';
+    emptyMsg.style.display = 'block';
+    return;
+  }
+  emptyMsg.style.display = 'none';
+  grid.innerHTML = '';
+
+  list.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const inCart = cart[p.id];
+
+    const mrpHtml = p.mrp ? `<span class="mrp">₹${Number(p.mrp).toFixed(0)}</span>` : '';
+    const priceLabel = p.pricing_type === 'by_weight'
+      ? `₹${Number(p.price).toFixed(0)} / kg`
+      : `₹${Number(p.price).toFixed(2)}`;
+
+    card.innerHTML = `
+      <div class="cat">${p.category}</div>
+      <div class="name">${p.name}</div>
+      <div class="price">${priceLabel} ${mrpHtml}</div>
+      <div class="unit-note">${p.pricing_type === 'by_weight' ? 'Sold by weight' : 'per ' + p.unit}</div>
+      <div class="controls"></div>
+    `;
+
+    const controls = card.querySelector('.controls');
+
+    if (p.pricing_type === 'by_weight'){
+      const currentKg = inCart ? inCart.weightKg : 0;
+      controls.innerHTML = `
+        <div class="qty-row">
+          <div class="stepper">
+            <button onclick="adjustWeight('${p.id}', -0.25)">−</button>
+            <input type="text" readonly id="wt-${p.id}" value="${currentKg.toFixed(2)}">
+            <button onclick="adjustWeight('${p.id}', 0.25)">+</button>
+          </div>
+        </div>
+        <button class="add-btn" onclick="confirmWeight('${p.id}')">${inCart ? 'Update (kg)' : 'Add to cart'}</button>
+      `;
+    } else {
+      const currentQty = inCart ? inCart.qty : 0;
+      controls.innerHTML = `
+        <div class="qty-row">
+          <div class="stepper">
+            <button onclick="adjustQty('${p.id}', -1)">−</button>
+            <span id="qty-${p.id}">${currentQty}</span>
+            <button onclick="adjustQty('${p.id}', 1)">+</button>
+          </div>
+        </div>
+        <button class="add-btn" onclick="addFixedToCart('${p.id}')">${inCart ? 'Update' : 'Add to cart'}</button>
+      `;
+    }
+
+    grid.appendChild(card);
+  });
+}
+
+/* ---------------- Cart logic ---------------- */
+let pendingQty = {};   // product id -> qty being chosen before "Add"
+let pendingWeight = {}; // product id -> weight being chosen before "Add"
+
+function adjustQty(id, delta){
+  const el = document.getElementById('qty-' + id);
+  let val = parseInt(el.textContent) + delta;
+  if (val < 0) val = 0;
+  el.textContent = val;
+  pendingQty[id] = val;
+}
+function addFixedToCart(id){
+  const p = products.find(x => x.id === id);
+  const qty = pendingQty[id] !== undefined ? pendingQty[id] : (cart[id] ? cart[id].qty : 0);
+  if (qty <= 0){ delete cart[id]; } else { cart[id] = { product: p, qty }; }
+  renderGrid();
+  updateCartBar();
+}
+
+function adjustWeight(id, delta){
+  const el = document.getElementById('wt-' + id);
+  let val = parseFloat(el.value) + delta;
+  if (val < 0) val = 0;
+  val = Math.round(val * 100) / 100;
+  el.value = val.toFixed(2);
+  pendingWeight[id] = val;
+}
+function confirmWeight(id){
+  const p = products.find(x => x.id === id);
+  const kg = pendingWeight[id] !== undefined ? pendingWeight[id] : (cart[id] ? cart[id].weightKg : 0);
+  if (kg <= 0){ delete cart[id]; } else { cart[id] = { product: p, weightKg: kg }; }
+  renderGrid();
+  updateCartBar();
+}
+
+function lineTotal(entry){
+  if (entry.product.pricing_type === 'by_weight'){
+    return entry.product.price * entry.weightKg;
+  }
+  return entry.product.price * entry.qty;
+}
+function cartTotal(){
+  return Object.values(cart).reduce((sum, e) => sum + lineTotal(e), 0);
+}
+function cartItemCount(){
+  return Object.keys(cart).length;
+}
+
+function updateCartBar(){
+  const bar = document.getElementById('cartBar');
+  const count = cartItemCount();
+  if (count === 0){ bar.classList.remove('show'); return; }
+  bar.classList.add('show');
+  document.getElementById('cartCount').textContent = count;
+  document.getElementById('cartTotalPreview').textContent = '₹' + cartTotal().toFixed(0);
+}
+
+/* ---------------- Cart sheet ---------------- */
+function openCart(){
+  renderCartLines();
+  buildPickupSlots();
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('cartSheet').classList.add('show');
+}
+function closeAllSheets(){
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('cartSheet').classList.remove('show');
+}
+function renderCartLines(){
+  const el = document.getElementById('cartLines');
+  el.innerHTML = '';
+  Object.entries(cart).forEach(([id, entry]) => {
+    const desc = entry.product.pricing_type === 'by_weight'
+      ? `${entry.weightKg} kg × ₹${entry.product.price}/kg`
+      : `${entry.qty} × ₹${entry.product.price}`;
+    const row = document.createElement('div');
+    row.className = 'cart-line';
+    row.innerHTML = `
+      <div>
+        <div class="nm">${entry.product.name}</div>
+        <div class="sub">${desc}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span>₹${lineTotal(entry).toFixed(2)}</span>
+        <button class="remove" onclick="removeFromCart('${id}')">Remove</button>
+      </div>
+    `;
+    el.appendChild(row);
+  });
+  document.getElementById('cartTotal').textContent = '₹' + cartTotal().toFixed(2);
+  toggleAddressRequirement();
+}
+function removeFromCart(id){
+  delete cart[id];
+  renderCartLines();
+  renderGrid();
+  updateCartBar();
+}
+function toggleAddressRequirement(){
+  const label = document.getElementById('addressLabel');
+  label.textContent = cartTotal() > 1000 ? 'Address (required for orders above ₹1000)' : 'Address (optional)';
+}
+function selectPayment(method){
+  selectedPayment = method;
+  document.querySelectorAll('.radio-opt').forEach(el => el.classList.remove('selected'));
+  document.querySelector(`[data-pay="${method}"]`).classList.add('selected');
+}
+
+/* ---------------- Pickup slots: hourly, 9am-9pm, next 7 days ---------------- */
+function buildPickupSlots(){
+  const select = document.getElementById('pickupSlot');
+  select.innerHTML = '';
+  const now = new Date();
+  const days = 7;
+  const openHour = 9, closeHour = 21;
+
+  for (let d = 0; d < days; d++){
+    const day = new Date(now);
+    day.setDate(now.getDate() + d);
+    for (let h = openHour; h < closeHour; h++){
+      const slot = new Date(day);
+      slot.setHours(h, 0, 0, 0);
+      if (slot <= now) continue; // skip past slots today
+      const label = slot.toLocaleDateString('en-IN', { weekday:'short', day:'numeric', month:'short' }) +
+                    ', ' + slot.toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' }) +
+                    ' – ' + new Date(slot.getTime()+3600000).toLocaleTimeString('en-IN', { hour:'numeric', minute:'2-digit' });
+      const opt = document.createElement('option');
+      opt.value = slot.toISOString();
+      opt.textContent = label;
+      select.appendChild(opt);
+    }
+  }
+}
+
+/* ---------------- Place order ---------------- */
+async function placeOrder(){
+  const errEl = document.getElementById('formErr');
+  errEl.style.display = 'none';
+
+  const name = document.getElementById('custName').value.trim();
+  const phone = document.getElementById('custPhone').value.trim();
+  const address = document.getElementById('custAddress').value.trim();
+  const pickupSlot = document.getElementById('pickupSlot').value;
+  const note = document.getElementById('orderNote').value.trim();
+  const total = cartTotal();
+
+  if (cartItemCount() === 0){ showErr('Your cart is empty.'); return; }
+  if (!name){ showErr('Please enter your name.'); return; }
+  if (!/^\d{10}$/.test(phone)){ showErr('Please enter a valid 10-digit phone number.'); return; }
+  if (total > 1000 && !address){ showErr('Address is required for orders above ₹1000.'); return; }
+  if (!pickupSlot){ showErr('Please choose a pickup slot.'); return; }
+
+  const placeBtn = document.getElementById('placeBtn');
+  placeBtn.disabled = true;
+  placeBtn.textContent = 'Placing order...';
+
+  const { data: orderRow, error: orderErr } = await supabase
+    .from('orders')
+    .insert({
+      customer_name: name,
+      customer_phone: phone,
+      customer_address: address || null,
+      pickup_slot: pickupSlot,
+      payment_method: selectedPayment,
+      total: total,
+      note: note || null
+    })
+    .select()
+    .single();
+
+  if (orderErr){
+    console.error(orderErr);
+    showErr('Something went wrong placing your order. Please try again.');
+    placeBtn.disabled = false;
+    placeBtn.textContent = 'Place order';
+    return;
+  }
+
+  const items = Object.values(cart).map(entry => ({
+    order_id: orderRow.id,
+    product_id: entry.product.id,
+    product_name: entry.product.name,
+    quantity: entry.product.pricing_type === 'by_weight' ? entry.weightKg : entry.qty,
+    price_at_order: entry.product.price
+  }));
+
+  const { error: itemsErr } = await supabase.from('order_items').insert(items);
+  if (itemsErr){
+    console.error(itemsErr);
+    showErr('Order created but items failed to save. Please contact the shop with your order number: ' + orderRow.order_number);
+    placeBtn.disabled = false;
+    placeBtn.textContent = 'Place order';
+    return;
+  }
+
+  showConfirmation(orderRow.order_number);
+}
+
+function showErr(msg){
+  const errEl = document.getElementById('formErr');
+  errEl.textContent = msg;
+  errEl.style.display = 'block';
+}
+
+function showConfirmation(orderNumber){
+  closeAllSheets();
+  document.getElementById('confirmOrderNo').textContent = orderNumber;
+  document.getElementById('confirmScreen').classList.add('show');
+  QRCode.toCanvas(document.getElementById('qrCanvas'), orderNumber, { width: 180, margin: 1 });
+}
+
+/* ---------------- Init ---------------- */
+loadProducts();
+</script>
+</body>
+</html>
